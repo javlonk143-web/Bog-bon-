@@ -19,7 +19,6 @@ module.exports = async function handler(req, res) {
   if (limited(ip)) return res.status(429).json({ error: "Soatlik limitga yetdingiz. Birozdan so'ng urinib ko'ring." });
 
   try {
-    // Request body'ni xavfsiz o'qish va parse qilish
     let body = req.body;
     if (typeof body === "string") {
       try { body = JSON.parse(body); } catch (e) {}
@@ -33,15 +32,16 @@ module.exports = async function handler(req, res) {
       try { body = JSON.parse(rawData); } catch (e) {}
     }
 
-    const imageBase64 = body?.imageBase64;
+    // Frontend yuborishi mumkin bo'lgan barcha variantlarni tekshiramiz
+    const imageBase64 = body?.imageBase64 || body?.image || body?.images?.[0];
+    
     if (!imageBase64) {
-      console.error("Xatolik: imageBase64 topilmadi. Kelgan body:", JSON.stringify(body));
-      return res.status(400).json({ error: "Rasm ma'lumoti topilmadi (imageBase64 bo'sh)" });
+      console.error("Xatolik: Rasm topilmadi. Kelgan body:", JSON.stringify(body));
+      return res.status(400).json({ error: "Rasm ma'lumoti topilmadi" });
     }
 
     const bearerToken = process.env.AWS_BEARER_TOKEN_BEDROCK;
     if (!bearerToken) {
-      console.error("AWS_BEARER_TOKEN_BEDROCK environment variable o'rnatilmagan!");
       return res.status(500).json({ error: "Serverda AWS token topilmadi" });
     }
 
@@ -60,7 +60,7 @@ module.exports = async function handler(req, res) {
               source: {
                 type: "base64",
                 media_type: "image/jpeg",
-                data: imageBase64.replace(/^data:image\/\w+;base64,/, ""),
+                data: String(imageBase64).replace(/^data:image\/\w+;base64,/, ""),
               },
             },
             {
