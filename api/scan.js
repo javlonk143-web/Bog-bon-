@@ -27,49 +27,51 @@ module.exports = async function handler(req, res) {
 
     const bedrockUrl = `https://bedrock-runtime.${region}.amazonaws.com/model/${MODEL}/invoke`;
 
+    const requestBody = {
+      anthropic_version: "bedrock-2023-05-31",
+      max_tokens: 1000,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: "image/jpeg",
+                data: imageBase64.replace(/^data:image\/\w+;base64,/, ""),
+              },
+            },
+            {
+              type: "text",
+              text: "O'simlik bargidagi kasallikni aniqlang va uni davolash uchun agronomik tavsiyalar bering.",
+            },
+          ],
+        },
+      ],
+    };
+
     const bedrockResponse = await fetch(bedrockUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${bearerToken}`,
       },
-      body: JSON.stringify({
-        anthropic_version: "bedrock-2023-05-31",
-        max_tokens: 1000,
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "image",
-                source: {
-                  type: "base64",
-                  media_type: "image/jpeg",
-                  data: imageBase64.replace(/^data:image\/\w+;base64,/, ""),
-                },
-              },
-              {
-                type: "text",
-                text: "O'simlik bargidagi kasallikni aniqlang va uni davolash uchun agronomik tavsiyalar bering.",
-              },
-            ],
-          },
-        ],
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     const data = await bedrockResponse.json();
 
     if (!bedrockResponse.ok) {
-      console.error("Bedrock Error:", data);
-      return res.status(bedrockResponse.status).json({ error: data.message || "Bedrock API xatosi" });
+      console.error("AWS Bedrock 400 Error Details:", JSON.stringify(data, null, 2));
+      return res.status(bedrockResponse.status).json({ error: data.message || data.error || "Bedrock API xatosi", details: data });
     }
 
     const replyText = data.content[0].text;
     return res.status(200).json({ result: replyText });
 
   } catch (err) {
-    console.error("Server Error:", err);
-    return res.status(500).json({ error: "Serverda ichki xatolik yuz berdi" });
+    console.error("Server Catch Error:", err);
+    return res.status(500).json({ error: "Serverda ichki xatolik yuz berdi", details: err.message });
   }
 };
