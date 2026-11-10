@@ -19,12 +19,33 @@ module.exports = async function handler(req, res) {
   if (limited(ip)) return res.status(429).json({ error: "Soatlik limitga yetdingiz. Birozdan so'ng urinib ko'ring." });
 
   try {
-    const { imageBase64 } = req.body || {};
-    if (!imageBase64) return res.status(400).json({ error: "Rasm ko'rsatilmadi" });
+    // Request body'ni xavfsiz o'qish va parse qilish
+    let body = req.body;
+    if (typeof body === "string") {
+      try { body = JSON.parse(body); } catch (e) {}
+    }
+    if (!body && req.readable) {
+      const buffers = [];
+      for await (const chunk of req) {
+        buffers.push(chunk);
+      }
+      const rawData = Buffer.concat(buffers).toString();
+      try { body = JSON.parse(rawData); } catch (e) {}
+    }
+
+    const imageBase64 = body?.imageBase64;
+    if (!imageBase64) {
+      console.error("Xatolik: imageBase64 topilmadi. Kelgan body:", JSON.stringify(body));
+      return res.status(400).json({ error: "Rasm ma'lumoti topilmadi (imageBase64 bo'sh)" });
+    }
 
     const bearerToken = process.env.AWS_BEARER_TOKEN_BEDROCK;
-    const region = "ap-southeast-2";
+    if (!bearerToken) {
+      console.error("AWS_BEARER_TOKEN_BEDROCK environment variable o'rnatilmagan!");
+      return res.status(500).json({ error: "Serverda AWS token topilmadi" });
+    }
 
+    const region = "ap-southeast-2";
     const bedrockUrl = `https://bedrock-runtime.${region}.amazonaws.com/model/${MODEL}/invoke`;
 
     const requestBody = {
@@ -63,11 +84,11 @@ module.exports = async function handler(req, res) {
     const data = await bedrockResponse.json();
 
     if (!bedrockResponse.ok) {
-      console.error("AWS Bedrock 400 Error Details:", JSON.stringify(data, null, 2));
+      console.error("AWS Bedrock Error:", JSON.stringify(data, null, 2));
       return res.status(bedrockResponse.status).json({ error: data.message || data.error || "Bedrock API xatosi", details: data });
     }
 
-    const replyText = data.content[0].text;
+    const replyText = data.content?.[0]?.text || JSON.stringify(data);
     return res.status(200).json({ result: replyText });
 
   } catch (err) {
