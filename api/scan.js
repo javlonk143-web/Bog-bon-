@@ -1,15 +1,13 @@
 "use strict";
 
-const MODEL = process.env.CLAUDE_MODEL || "anthropic.claude-sonnet-5-5";
+const MODEL = process.env.CLAUDE_MODEL || "anthropic.claude-sonnet-5";
 
 module.exports = async function handler(req, res) {
-  // Faqat POST so'rovlarni qabul qilamiz
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
-    // So'rov tanasini xavfsiz o'qish
     let body = req.body;
     if (typeof body === "string") {
       try { body = JSON.parse(body); } catch (e) {}
@@ -20,14 +18,12 @@ module.exports = async function handler(req, res) {
       try { body = JSON.parse(Buffer.concat(chunks).toString()); } catch (e) {}
     }
 
-    // Frontend qaysi formatda yuborishidan qat'iy nazar rasmni ushlab olamiz
     const imageBase64 = body?.imageBase64 || body?.image || body?.images?.[0];
     
     if (!imageBase64) {
       return res.status(400).json({ error: "Rasm ma'lumoti topilmadi" });
     }
 
-    // AWS Bedrock Token tekshiruvi
     const bearerToken = process.env.AWS_BEARER_TOKEN_BEDROCK;
     if (!bearerToken) {
       return res.status(500).json({ error: "Serverda AWS token topilmadi" });
@@ -36,7 +32,6 @@ module.exports = async function handler(req, res) {
     const region = "ap-southeast-2";
     const bedrockUrl = `https://bedrock-runtime.${region}.amazonaws.com/model/${MODEL}/invoke`;
 
-    // AWS Bedrock uchun Claude Sonnet so'rov formati
     const bedrockResponse = await fetch(bedrockUrl, {
       method: "POST",
       headers: {
