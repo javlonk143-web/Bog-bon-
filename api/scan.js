@@ -1,5 +1,4 @@
 "use strict";
-const { buildPrompt, LABELS } = require("../lib/prompt.js");
 
 const MODEL = process.env.CLAUDE_MODEL || "anthropic.claude-sonnet-5-5";
 const MAX_PER_HOUR = parseInt(process.env.HOURLY_LIMIT || "12", 10);
